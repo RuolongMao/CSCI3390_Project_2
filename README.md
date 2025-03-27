@@ -1,35 +1,141 @@
 # Large Scale Data Processing: Project 2
-## Getting started
-Head to [Project 1](https://github.com/CSCI3390Spring2025/project_1) if you're looking for information on Git, template repositories, or setting up your local/remote environments.
 
-## Resilient distributed datasets in Spark
-This project will familiarize you with RDD manipulations by implementing some of the sketching algorithms the course has covered thus far.  
+## Team Members
+* Hoiting Mok
+* Ruolong Mao
 
-You have been provided with the program's skeleton, which consists of 5 functions for computing either F0 or F2: the BJKST, tidemark, tug-of-war, exact F0, and exact F2 algorithms. The tidemark and exact F0 functions are given for your reference.
+## 0. GCP Cluster Configuration
+![image](https://github.com/user-attachments/assets/c909f40b-b8df-4b2e-8945-2927c036ee06)
 
-## Relevant data
+## 1. Exact F2
+### Code
+```
+  def exact_F2(x: RDD[String]) : Long = {
+    x.map(p => (p, 1))
+      .reduceByKey(_ + _)
+      .map{ case (_, count) => count.toLong * count.toLong }
+      .reduce(_ + _)
+  }
+```
 
-You can find the TAR file containing `2014to2017.csv` [here](https://drive.google.com/file/d/1MtCimcVKN6JrK2sLy4GbjeS7E2a-UMA0/view?usp=sharing). Download and expand the TAR file for local processing. For processing in the cloud, refer to the steps for creating a storage bucket in [Project 1](https://github.com/CSCI3390Spring2025/project_1) and upload `2014to2017.csv`.
+### Local Execution
+#### Command:
+```sh
+spark-submit --class "project_2.main" --master "local[*]" target/scala-2.12/project_2_2.12-1.0.jar "./2014to2017.csv" exactF2
+```
+#### Output:
+![image](https://github.com/user-attachments/assets/f856467b-c549-4623-bae5-58fc3b39c196)
 
-`2014to2017.csv` contains the records of parking tickets issued in New York City from 2014 to 2017. You'll see that the data has been cleaned so that only the license plate information remains. Keep in mind that a single car can receive multiple tickets within that period and therefore appear in multiple records.  
+### GCP Execution
+![image](https://github.com/user-attachments/assets/180e488e-f250-4285-8df5-f4980d10b073)
 
-**Hint**: while implementing the functions, it may be helpful to copy 100 records or so to a new file and use that file for faster testing.  
+## 2. Tug-of-War
+### Code
+```
+  def Tug_of_War(x: RDD[String], width: Int, depth: Int): Double = {
+    val hashFuncs = Array.fill(depth)(
+        Array.fill(width)(new four_universal_Radamacher_hash_function)
+    )
 
-## Calculating and reporting your findings
-You'll be submitting a report along with your code that provides commentary on the tasks below.  
+    val estimates = for (d <- 0 until depth) yield {
+        val rowEstimates = for (w <- 0 until width) yield {
+            val hashFunc = hashFuncs(d)(w)
+            val sketch = x.map(plate => hashFunc.hash(plate)).sum()
+            sketch * sketch
+        }
+        rowEstimates.sum / width
+    }
 
-1. **(3 points)** Implement the `exact_F2` function. The function accepts an RDD of strings as an input. The output should be exactly `F2 = sum(Fs^2)`, where `Fs` is the number of occurrences of plate `s` and the sum is taken over all plates. This can be achieved in one line using the `map` and `reduceByKey` methods of the RDD class. Run `exact_F2` locally **and** on GCP with 1 driver and 4 machines having 2 x N1 cores. Copy the results to your report. Terminate the program if it runs for longer than 30 minutes.
-2. **(3 points)** Implement the `Tug_of_War` function. The function accepts an RDD of strings, a parameter `width`, and a parameter `depth` as inputs. It should run `width * depth` Tug-of-War sketches, group the outcomes into groups of size `width`, compute the means of each group, and then return the median of the `depth` means in approximating F2. A 4-universal hash function class `four_universal_Radamacher_hash_function`, which generates a hash function from a 4-universal family, has been provided for you. The generated function `hash(s: String)` will hash a string to 1 or -1, each with a probability of 50%. Once you've implemented the function, set `width` to 10 and `depth` to 3. Run `Tug_of_War` locally **and** on GCP with 1 driver and 4 machines having 2 x N1 cores. Copy the results to your report. Terminate the program if it runs for longer than 30 minutes. **Please note** that the algorithm won't be significantly faster than `exact_F2` since the number of different cars is not large enough for the memory to become a bottleneck. Additionally, computing `width * depth` hash values of the license plate strings requires considerable overhead. That being said, executing with `width = 1` and `depth = 1` should generally still be faster.
-3. **(3 points)** Implement the `BJKST` function. The function accepts an RDD of strings, a parameter `width`, and a parameter `trials` as inputs. `width` denotes the maximum bucket size of each sketch. The function should run `trials` sketches and return the median of the estimates of the sketches. A template of the `BJKSTSketch` class is also included in the sample code. You are welcome to finish its methods and apply that class or write your own class from scratch. A 2-universal hash function class `hash_function(numBuckets_in: Long)` has also been provided and will hash a string to an integer in the range `[0, numBuckets_in - 1]`. Once you've implemented the function, determine the smallest `width` required in order to achieve an error of +/- 20% on your estimate. Keeping `width` at that value, set `depth` to 5. Run `BJKST` locally **and** on GCP with 1 driver and 4 machines having 2 x N1 cores. Copy the results to your report. Terminate the program if it runs for longer than 30 minutes.
-4. **(1 point)** Compare the BJKST algorithm to the exact F0 algorithm and the tug-of-war algorithm to the exact F2 algorithm. Summarize your findings.
+    val sortedEstimates = estimates.sorted
+    if (depth % 2 == 1)
+        sortedEstimates(depth / 2)
+    else
+        (sortedEstimates(depth / 2) + sortedEstimates(depth / 2 - 1)) / 2
+}
+```
 
-## Submission via GitHub
-Delete your project's current **README.md** file (the one you're reading right now) and include your report as a new **README.md** file in the project root directory. Have no fear—the README with the project description is always available for reading in the template repository you created your repository from. For more information on READMEs, feel free to visit [this page](https://docs.github.com/en/github/creating-cloning-and-archiving-repositories/about-readmes) in the GitHub Docs. You'll be writing in [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown). Be sure that your repository is up to date and you have pushed all changes you've made to the project's code. When you're ready to submit, simply provide the link to your repository in the Canvas assignment's submission.
+### Local Execution
+#### Command:
+```sh
+spark-submit --class project_2.main --master local[*] target/scala-2.12/project_2_2.12-1.0.jar "./2014to2017.csv" ToW 10 3
+```
+#### Output:
+![image](https://github.com/user-attachments/assets/81b58d31-81f3-4a0a-bee4-623125ce7a4f)
 
-## You must do the following to receive full credit:
-1. Create your report in the ``README.md`` and push it to your repo.
-2. In the report, you must include your (and your group members') full name in addition to any collaborators.
-3. Submit a link to your repo in the Canvas assignment.
+#### Command:
+```sh
+spark-submit --class project_2.main --master local[*] target/scala-2.12/project_2_2.12-1.0.jar "./2014to2017.csv" ToW 1 1
+```
+#### Output:
+![image](https://github.com/user-attachments/assets/83917b8a-4e87-4daa-91df-e9ae7f5884f4)
 
-## Late submission penalties
-Please refer to the course policy.
+The output with depth and width equal to 1 was calculated significantly faster than the exact F2 method but with much less accuracy. How close the estimated value is in comparison to exact F2 seems to fluctuate across different trials – mostly less than the value we are looking for. 
+
+### GCP Execution
+![image](https://github.com/user-attachments/assets/9ebcc29c-8838-4ad1-a1d7-1f0edd14f5a5)
+
+## 3.1 Baseline: Exact F0
+### Local Execution
+#### Command:
+```sh
+spark-submit --class "project_2.main" --master "local[*]" target/scala-2.12/project_2_2.12-1.0.jar "./2014to2017.csv" exactF0
+```
+#### Output:
+![image](https://github.com/user-attachments/assets/677a36c0-f631-4c3e-b4e9-2c56f988cefe)
+
+
+## 3.2 BJKST
+### Code
+```
+  def BJKST(x: RDD[String], width: Int, trials: Int): Double = {
+    val estimates = (0 until trials).map { _ =>
+        val hashFunc = new hash_function(Long.MaxValue)
+        val initialSketch = new BJKSTSketch(Set.empty[(String, Int)], 0, width)
+        
+        val finalSketch = x.treeAggregate(initialSketch)(
+            seqOp = (sketch, str) => {
+                val hashVal = hashFunc.hash(str)
+                val zeros = hashFunc.zeroes(hashVal)
+                sketch.add_string(str, zeros)
+            },
+            combOp = (sketch1, sketch2) => sketch1 + sketch2
+        )
+        
+        finalSketch.bucket.size * math.pow(2, finalSketch.z)
+    }
+    
+    val sorted = estimates.sorted
+    if (trials % 2 == 1) sorted(trials / 2)
+    else (sorted(trials / 2 - 1) + sorted(trials / 2)) / 2
+}
+```
+
+### Local Execution
+#### Command:
+```sh
+spark-submit --class "project_2.main" --master "local[*]" target/scala-2.12/project_2_2.12-1.0.jar "./2014to2017.csv" BJKST 100 5
+```
+#### Output:
+![image](https://github.com/user-attachments/assets/5236d103-b245-4117-8625-a27be261aef7)
+
+### GCP Execution
+![image](https://github.com/user-attachments/assets/9f8e6d9f-4ff5-4c39-a8cc-8d942229112a)
+
+## 4. Comparisons and Summary
+### Tug of War
+Depth-width: 10-3
+Estimation 1st trial: 8 776 591 360
+Estimation 2nd trial: 8 397 124 648
+Exact F2: 8 567 966 130
+
+When using a depth of 10 and width of 3, the F2 estimate computed by the Tug of War algorithm is quite close to the exact F2 value. With the above listed estimated values and the exact value of **8567966130**, we yielded a **2.4%** and **2.03%** error on the two trials. The Tug-of-War algorithm here is performing stably on the local machine using depth of 10 and width of 3. 
+
+### BJKST
+Bucketsize-depth: 100-5
+Estimation: 6 553 600
+Exact F0: 7 406 649
+
+The BJKST estimation differs from the exact F0 value by **11.5%**, which is the smallest width that we experimented to be within +/-20% of the desired value. We initially started with a large width that closely resembled the exact F0. The trial ran for more than 10 minutes and arrived at an estimate that was well outside of the +/-20% bound. As we slowly decremented the width, the algorithm was able to finish its estimate faster and faster as well as producing a good estimate.
+
+### Summary
+The Tug-of-War algorithm, used for estimating the second-order frequency moment (F2), relies on random projections to maintain an efficient sketch of the data stream. In the experiment, a depth of 10 and a width of 3 provided stable and accurate estimates while a depth of 1 and width of 1 resulted in much less stability and accuracy(as mentioned in part 2). This demonstrates that the median of mean method effectively increases estimation accuracy as we have learnt. As for BJKST, designed for estimating the number of distinct elements (F0) by employing probabilistic sampling and hash-based bucketing. Our results demostrated how choice of bucket size and depth affects both the precision of the estimate and the runtime efficiency. 
