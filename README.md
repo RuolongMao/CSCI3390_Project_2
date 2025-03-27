@@ -35,21 +35,21 @@ spark-submit --class "project_2.main" --master "local[*]" target/scala-2.12/proj
   def Tug_of_War(x: RDD[String], width: Int, depth: Int): Double = {
     val hashFuncs = Array.fill(depth)(Array.fill(width)(new four_universal_Radamacher_hash_function))
 
-    val estimates = for (d <- 0 until depth) yield {
-        val rowEstimates = for (w <- 0 until width) yield {
+    val est = for (d <- 0 until depth) yield {
+        val rowEst = for (w <- 0 until width) yield {
             val hashFunc = hashFuncs(d)(w)
             val sketch = x.map(plate => hashFunc.hash(plate)).sum()
             sketch * sketch
         }
-        rowEstimates.sum / width
+        rowEst.sum / width
     }
 
-    val sortedEstimates = estimates.sorted
+    val sortedEst = est.sorted
 
     if (depth % 2 == 1)
-        sortedEstimates(depth / 2)
+        sortedEst(depth / 2)
     else
-        (sortedEstimates(depth / 2) + sortedEstimates(depth / 2 + 1)) / 2
+        (sortedEst(depth / 2) + sortedEst(depth / 2 + 1)) / 2
 }
 ```
 
