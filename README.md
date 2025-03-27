@@ -123,17 +123,17 @@ spark-submit --class "project_2.main" --master "local[*]" target/scala-2.12/proj
 
 ## 4. Comparisons and Summary
 ### Tug of War
-Depth-width: 10-3
-Estimation 1st trial: 8 776 591 360
-Estimation 2nd trial: 8 397 124 648
-Exact F2: 8 567 966 130
+Depth-width: 10-3__
+Estimation 1st trial: 8 776 591 360__
+Estimation 2nd trial: 8 397 124 648__
+Exact F2: 8 567 966 130__
 
 When using a depth of 10 and width of 3, the F2 estimate computed by the Tug of War algorithm is quite close to the exact F2 value. With the above listed estimated values and the exact value of **8567966130**, we yielded a **2.4%** and **2.03%** error on the two trials. The Tug-of-War algorithm here is performing stably on the local machine using depth of 10 and width of 3. 
 
 ### BJKST
-Bucketsize-depth: 100-5
-Estimation: 6 553 600
-Exact F0: 7 406 649
+Bucketsize-depth: 100-5__
+Estimation: 6 553 600__
+Exact F0: 7 406 649__
 
 The BJKST estimation differs from the exact F0 value by **11.5%**, which is the smallest width that we experimented to be within +/-20% of the desired value. We initially started with a large width that closely resembled the exact F0. The trial ran for more than 10 minutes and arrived at an estimate that was well outside of the +/-20% bound. As we slowly decremented the width, the algorithm was able to finish its estimate faster and faster as well as producing a good estimate.
 
