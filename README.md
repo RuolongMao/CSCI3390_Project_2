@@ -4,7 +4,10 @@
 * Hoiting Mok
 * Ruolong Mao
 
-## 2. Exact F2
+## 0. GCP Cluster Configuration
+![image](https://github.com/user-attachments/assets/c909f40b-b8df-4b2e-8945-2927c036ee06)
+
+## 1. Exact F2
 ### Code
 ```
   def exact_F2(x: RDD[String]) : Long = {
@@ -20,11 +23,13 @@
 ```sh
 spark-submit --class "project_2.main" --master "local[*]" target/scala-2.12/project_2_2.12-1.0.jar "./2014to2017.csv" exactF2
 ```
+#### Output:
+![image](https://github.com/user-attachments/assets/f856467b-c549-4623-bae5-58fc3b39c196)
 
 ### GCP Execution
+![image](https://github.com/user-attachments/assets/180e488e-f250-4285-8df5-f4980d10b073)
 
-
-## 3. Tug-of-War
+## 2. Tug-of-War
 ### Code
 ```
   def Tug_of_War(x: RDD[String], width: Int, depth: Int): Double = {
@@ -55,45 +60,68 @@ spark-submit --class "project_2.main" --master "local[*]" target/scala-2.12/proj
 spark-submit --class project_2.main --master local[*] target/scala-2.12/project_2_2.12-1.0.jar "./2014to2017.csv" ToW 10 3
 ```
 #### Output:
-Using a depth of 10 and width of 3, the F2 estimate computed by the Tug-of-War algorithm is quite close to the exact F2 value. Estimated value: **8,776,591,360**  
-Exact value: **8,567,966,130**  
-Error: **2.4%**
+![image](https://github.com/user-attachments/assets/81b58d31-81f3-4a0a-bee4-623125ce7a4f)
+
+When using a depth of 10 and width of 3, The F2 estimate computed by the Tug of War algorithm is quite close to the exact F2 value. Estimated value is **8776591360** and the exact value is **8567966130**, yielding a **2.4%** and **2.03%** error on the two trials. The Tug-of-War algorithm here is performing stably on the local machine using depth of 10 and width of 3. 
 
 #### Command:
 ```sh
 spark-submit --class project_2.main --master local[*] target/scala-2.12/project_2_2.12-1.0.jar "./2014to2017.csv" ToW 1 1
 ```
 #### Output:
-With depth and width set to 1, execution was significantly faster than exact F2 but less accurate. The estimated value fluctuated across different trials, generally producing a lower estimate.
+![image](https://github.com/user-attachments/assets/83917b8a-4e87-4daa-91df-e9ae7f5884f4)
+
+The output with depth and width equal to 1 was calculated significantly faster than the exact F2 method but with much less accuracy. How close the estimated value is in comparison to exact F2 seems to fluctuate across different trials – mostly less than the value we are looking for. 
 
 ### GCP Execution
-(To be updated with results from GCP)
+![image](https://github.com/user-attachments/assets/9ebcc29c-8838-4ad1-a1d7-1f0edd14f5a5)
 
-## Baseline: Exact F0
+## 3.1 Baseline: Exact F0
 ### Local Execution
 #### Command:
 ```sh
 spark-submit --class "project_2.main" --master "local[*]" target/scala-2.12/project_2_2.12-1.0.jar "./2014to2017.csv" exactF0
 ```
+#### Output:
+![image](https://github.com/user-attachments/assets/677a36c0-f631-4c3e-b4e9-2c56f988cefe)
 
-## 4. BJKST
+
+## 3.2 BJKST
+### Code
+```
+  def BJKST(x: RDD[String], width: Int, trials: Int): Double = {
+    val estimates = (0 until trials).map { _ =>
+        val hashFunc = new hash_function(Long.MaxValue)
+        val initialSketch = new BJKSTSketch(Set.empty[(String, Int)], 0, width)
+        
+        val finalSketch = x.treeAggregate(initialSketch)(
+            seqOp = (sketch, str) => {
+                val hashVal = hashFunc.hash(str)
+                val zeros = hashFunc.zeroes(hashVal)
+                sketch.add_string(str, zeros)
+            },
+            combOp = (sketch1, sketch2) => sketch1 + sketch2
+        )
+        
+        finalSketch.bucket.size * math.pow(2, finalSketch.z)
+    }
+    
+    val sorted = estimates.sorted
+    if (trials % 2 == 1) sorted(trials / 2)
+    else (sorted(trials / 2 - 1) + sorted(trials / 2)) / 2
+}
+```
+
 ### Local Execution
 #### Command:
 ```sh
 spark-submit --class "project_2.main" --master "local[*]" target/scala-2.12/project_2_2.12-1.0.jar "./2014to2017.csv" BJKST 100 5
 ```
 #### Output:
-The BJKST estimation differed from the exact F0 value by **11.5%**, which was the smallest width we experimented with that stayed within the **±20%** error margin. A larger width closely approximated the exact F0, but execution took over **10 minutes** and resulted in an estimate outside the required range.
+![image](https://github.com/user-attachments/assets/5236d103-b245-4117-8625-a27be261aef7)
+
+The BJKST estimation differs from the exact F0 value by **11.5%**, which is the smallest width that we experimented to be within +/-20% of the desired value. We initially started with a large width that closely resembled the exact F0. The trial ran for more than 10 minutes and arrived at an estimate that was well outside of the +/-20% bound. As we slowly decremented the width, the algorithm was able to finish its estimate faster and faster as well as producing a good estimate.
 
 ### GCP Execution
-(To be updated with results from GCP)
+![image](https://github.com/user-attachments/assets/9f8e6d9f-4ff5-4c39-a8cc-8d942229112a)
 
-## 5. Comparison of Algorithms
-- **BJKST vs. Exact F0**: BJKST provides a reasonable approximation with reduced execution time, but accuracy varies with width and trial count.
-- **Tug-of-War vs. Exact F2**: Tug-of-War achieves better efficiency but sacrifices accuracy, particularly with lower depth and width settings.
-
-## Conclusion
-This project demonstrated the trade-offs between exact and approximate algorithms in large-scale data processing. The experiments show that while exact methods provide higher accuracy, approximate methods significantly improve execution time when configured appropriately.
-
-## Submission
-This report is included in the project's repository. The repository link has been submitted via Canvas.
