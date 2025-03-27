@@ -33,9 +33,7 @@ spark-submit --class "project_2.main" --master "local[*]" target/scala-2.12/proj
 ### Code
 ```
   def Tug_of_War(x: RDD[String], width: Int, depth: Int): Double = {
-    val hashFuncs = Array.fill(depth)(
-        Array.fill(width)(new four_universal_Radamacher_hash_function)
-    )
+    val hashFuncs = Array.fill(depth)(Array.fill(width)(new four_universal_Radamacher_hash_function))
 
     val estimates = for (d <- 0 until depth) yield {
         val rowEstimates = for (w <- 0 until width) yield {
@@ -47,10 +45,11 @@ spark-submit --class "project_2.main" --master "local[*]" target/scala-2.12/proj
     }
 
     val sortedEstimates = estimates.sorted
+
     if (depth % 2 == 1)
         sortedEstimates(depth / 2)
     else
-        (sortedEstimates(depth / 2) + sortedEstimates(depth / 2 - 1)) / 2
+        (sortedEstimates(depth / 2) + sortedEstimates(depth / 2 + 1)) / 2
 }
 ```
 
